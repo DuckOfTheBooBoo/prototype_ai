@@ -1,13 +1,15 @@
-from flask import Flask, request, jsonify, send_from_directory
-from flask_socketio import SocketIO, emit, join_room
-from fraud_detection import FraudDetector
-import os
-import pandas as pd
-import random
-import eventlet
-from datetime import datetime
-import threading
 import logging
+import os
+import random
+from datetime import datetime
+import sys
+
+import eventlet
+import pandas as pd
+from flask import Flask, jsonify, request, send_from_directory
+from flask_socketio import SocketIO, emit, join_room
+
+from fraud_detection import FraudDetector
 
 app = Flask(__name__, static_folder='frontend/dist', static_url_path='')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
@@ -29,15 +31,22 @@ HF_REPO_ID = os.environ.get('HF_REPO_ID', None)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    datefmt='%Y-%m-%d %H:%M:%S',
+    stream=sys.stdout,
+    force=True
 )
+
+logging.getLogger('socketio').setLevel(logging.WARNING)
+logging.getLogger('engineio').setLevel(logging.WARNING)
+logging.getLogger('eventlet').setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 # DEBUG: Check filesystem at startup
 logger.info("=" * 80)
 logger.info("🔍 [STARTUP DEBUG] Filesystem Check")
 logger.info(f"🔍 [STARTUP DEBUG] Current directory: {os.getcwd()}")
-logger.info(f"🔍 [STARTUP DEBUG] Directory contents:")
+logger.info("🔍 [STARTUP DEBUG] Directory contents:")
 for item in sorted(os.listdir('.')):
     item_path = os.path.join('.', item)
     if os.path.isdir(item_path):
@@ -46,8 +55,8 @@ for item in sorted(os.listdir('.')):
         logger.info(f"🔍 [STARTUP DEBUG]   📄 {item}")
 
 if os.path.exists('./content'):
-    logger.info(f"🔍 [STARTUP DEBUG] ✅ ./content EXISTS!")
-    logger.info(f"🔍 [STARTUP DEBUG] Contents of ./content:")
+    logger.info("🔍 [STARTUP DEBUG] ✅ ./content EXISTS!")
+    logger.info("🔍 [STARTUP DEBUG] Contents of ./content:")
     for item in sorted(os.listdir('./content')):
         item_path = os.path.join('./content', item)
         if os.path.isdir(item_path):
@@ -69,7 +78,7 @@ if os.path.exists('./content'):
         else:
             logger.info(f"🔍 [STARTUP DEBUG] ❌ {filepath} DOES NOT EXIST")
 else:
-    logger.info(f"🔍 [STARTUP DEBUG] ❌ ./content DOES NOT EXIST")
+    logger.info("🔍 [STARTUP DEBUG] ❌ ./content DOES NOT EXIST")
 logger.info("=" * 80)
 
 
@@ -129,13 +138,13 @@ def predict():
             'data': result
         }), 200
 
-    except ValueError as e:
+    except ValueError:
         return jsonify({
             'success': False,
             'error': 'Data insufficient or invalid format'
         }), 422
 
-    except Exception as e:
+    except Exception:
         return jsonify({
             'success': False,
             'error': 'An error occurred'
@@ -272,15 +281,15 @@ def stream_predictions(visitor_id):
         logger.info(f'📊 [STREAM] Starting prediction stream for visitor: {visitor_id}')
         
         logger.debug(f'📊 [DEBUG] Current working directory: {os.getcwd()}')
-        logger.debug(f'📊 [DEBUG] Checking if content directory exists...')
+        logger.debug('📊 [DEBUG] Checking if content directory exists...')
         if os.path.exists('./content'):
-            logger.debug(f'📊 [DEBUG] ./content EXISTS')
-            logger.debug(f'📊 [DEBUG] Contents of ./content:')
+            logger.debug('📊 [DEBUG] ./content EXISTS')
+            logger.debug('📊 [DEBUG] Contents of ./content:')
             for item in os.listdir('./content'):
                 logger.debug(f'📊 [DEBUG]   - {item}')
         else:
-            logger.debug(f'📊 [DEBUG] ./content DOES NOT EXIST')
-            logger.debug(f'📊 [DEBUG] Current directory contents:')
+            logger.debug('📊 [DEBUG] ./content DOES NOT EXIST')
+            logger.debug('📊 [DEBUG] Current directory contents:')
             for item in os.listdir('.'):
                 logger.debug(f'📊 [DEBUG]   - {item}')
         
@@ -289,14 +298,14 @@ def stream_predictions(visitor_id):
         logger.debug(f'📊 [DEBUG] File check: {csv1_path} exists = {os.path.exists(csv1_path)}')
         logger.debug(f'📊 [DEBUG] File check: {csv2_path} exists = {os.path.exists(csv2_path)}')
         
-        logger.info(f'📊 [STREAM] Loading test data...')
+        logger.info('📊 [STREAM] Loading test data...')
         test_trans = pd.read_csv(os.path.join(os.getcwd(), 'content', 'small_test_transaction.csv'))
         test_id = pd.read_csv(os.path.join(os.getcwd(), 'content', 'ieee-fraud-detection', 'test_identity.csv'))
         
         test_trans.columns = test_trans.columns.str.replace('-', '_')
         test_id.columns = test_id.columns.str.replace('-', '_')
         
-        logger.info(f'📊 [STREAM] Merging transaction and identity data...')
+        logger.info('📊 [STREAM] Merging transaction and identity data...')
         test_merged = test_trans.merge(test_id, on='TransactionID', how='left')
         
         logger.info(f'📊 [STREAM] Will stream {len(test_merged)} predictions')
@@ -343,8 +352,7 @@ def stream_predictions(visitor_id):
         logger.error(f'🔴 [STREAM] ERROR in stream for visitor {visitor_id}')
         logger.error(f'🔴 [STREAM] Error: {e}')
         logger.error(f'🔴 [STREAM] Error type: {type(e).__name__}')
-        import traceback
-        logger.error(f'🔴 [STREAM] Traceback:')
+        logger.error('🔴 [STREAM] Traceback:')
         logger.exception("Full traceback:")
         logger.error('🔴 ' + '=' * 78)
         socketio.emit('stream_error', {'error': str(e)}, room=visitor_id)
