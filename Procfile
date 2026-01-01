@@ -1,1 +1,2 @@
-web: gunicorn --chdir . --bind 0.0.0.0:$PORT 'app:socketio' app:app --worker-class eventlet --workers 2 --threads 4
+web: gunicorn --chdir . -k eventlet -w 1 --bind=0.0.0.0:$PORT --timeout 120 --preload app:app
+

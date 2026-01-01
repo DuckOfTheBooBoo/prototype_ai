@@ -5,6 +5,8 @@ from datetime import datetime
 import sys
 
 import eventlet
+eventlet.monkey_patch()
+
 import pandas as pd
 from flask import Flask, jsonify, request, send_from_directory
 from flask_socketio import SocketIO, emit, join_room
