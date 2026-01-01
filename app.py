@@ -274,12 +274,14 @@ def stream_predictions(visitor_id):
             for item in os.listdir('.'):
                 print(f'📊 [DEBUG]   - {item}')
         
-        print(f'📊 [DEBUG] File check: ./content/small_test_transaction.csv exists = {os.path.exists("./content/small_test_transaction.csv")}')
-        print(f'📊 [DEBUG] File check: ./content/ieee-fraud-detection/test_identity.csv exists = {os.path.exists("./content/ieee-fraud-detection/test_identity.csv")}')
+        csv1_path = os.path.join(os.getcwd(), 'content', 'small_test_transaction.csv')
+        csv2_path = os.path.join(os.getcwd(), 'content', 'ieee-fraud-detection', 'test_identity.csv')
+        print(f'📊 [DEBUG] File check: {csv1_path} exists = {os.path.exists(csv1_path)}')
+        print(f'📊 [DEBUG] File check: {csv2_path} exists = {os.path.exists(csv2_path)}')
         
         print(f'📊 [STREAM] Loading test data...')
-        test_trans = pd.read_csv('./content/small_test_transaction.csv')
-        test_id = pd.read_csv('./content/ieee-fraud-detection/test_identity.csv')
+        test_trans = pd.read_csv(os.path.join(os.getcwd(), 'content', 'small_test_transaction.csv'))
+        test_id = pd.read_csv(os.path.join(os.getcwd(), 'content', 'ieee-fraud-detection', 'test_identity.csv'))
         
         test_trans.columns = test_trans.columns.str.replace('-', '_')
         test_id.columns = test_id.columns.str.replace('-', '_')
