@@ -21,8 +21,7 @@ active_streams = {}  # visitor_id -> {thread, socket_ids, status}
 socket_to_visitor = {}  # socket.sid -> visitor_id
 
 # Environment variables for deployment
-HF_REPO_ID = os.environ.get('HF_REPO_ID', None)  # HuggingFace repository ID for models
-WEBSOCKET_PATH = os.environ.get('WEBSOCKET_PATH', '/socket.io')  # WebSocket path for frontend
+HF_REPO_ID = os.environ.get('HF_REPO_ID', None)
 
 def get_detector():
     """Lazy load detector to avoid startup delays."""
@@ -99,32 +98,6 @@ def health():
     return jsonify({'status': 'ok'}), 200
 
 
-@app.route('/config', methods=['GET'])
-def get_config():
-    """
-    Return configuration for frontend clients.
-
-    This endpoint provides the WebSocket URL and other configuration
-    that the frontend needs to connect properly.
-    """
-    is_secure = request.is_secure or request.headers.get('X-Forwarded-Proto') == 'https'
-
-    base_url = os.environ.get('WEBSOCKET_URL')
-
-    if not base_url:
-        scheme = 'https' if is_secure else 'http'
-        base_url = f"{scheme}://{request.host}"
-
-    websocket_url = f"{base_url}{WEBSOCKET_PATH}"
-    websocket_url = websocket_url.replace('https://', 'wss://').replace('http://', 'ws://')
-
-    return jsonify({
-        'websocket_url': websocket_url,
-        'websocket_path': WEBSOCKET_PATH,
-        'mode': 'huggingface' if HF_REPO_ID else 'local'
-    }), 200
-
-
 @app.route('/api')
 def api_info():
     return jsonify({
@@ -132,8 +105,7 @@ def api_info():
         'version': '1.0',
         'endpoints': {
             'POST /predict': 'Predict fraud for single transaction',
-            'GET /health': 'Health check',
-            'GET /config': 'Get WebSocket configuration'
+            'GET /health': 'Health check'
         }
     }), 200
 

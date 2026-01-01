@@ -7,118 +7,87 @@ export function useWebSocket() {
   const isConnected = ref(false)
   const predictions = ref<Prediction[]>([])
   const streamComplete = ref(false)
-  const configLoading = ref(true)
-  const configError = ref<string | null>(null)
 
   const getOrCreateVisitorId = (): string => {
     let visitorId = localStorage.getItem('visitor_id')
-    
     if (!visitorId) {
-      // Generate UUID v4
-      visitorId = crypto.randomUUID()
+      visitorId = `visitor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       localStorage.setItem('visitor_id', visitorId)
-      console.log('Generated new visitor_id:', visitorId)
-    } else {
-      console.log('Using existing visitor_id:', visitorId)
     }
-    
     return visitorId
   }
 
-  const fetchConfig = async (): Promise<string | null> => {
-    try {
-      const response = await fetch('/config')
-      if (!response.ok) {
-        throw new Error('Failed to fetch config')
-      }
-      const config = await response.json()
-      return config.websocket_url
-    } catch (error) {
-      console.error('Error fetching config:', error)
-      configError.value = error instanceof Error ? error.message : 'Unknown error'
-      return null
-    }
-  }
-
   const connect = async () => {
-    configLoading.value = true
-    
-    try {
-      // Fetch WebSocket URL from backend
-      let wsUrl = await fetchConfig()
-      
-      // Fallback to environment variable or current origin
-      if (!wsUrl) {
-        const envUrl = import.meta.env.VITE_WEBSOCKET_URL
-        if (envUrl) {
-          wsUrl = envUrl
-        } else {
-          // Use current origin with default path
-          wsUrl = '' // Let socket.io-client use default
-        }
-      }
-      
-      configLoading.value = false
-      
-      socket.value = io(wsUrl!, {
-        transports: ['websocket', 'polling'],
-        autoConnect: true,
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000
-      })
+    console.log('🟡 [WS] === STARTING WEBSOCKET CONNECTION ===')
+    console.log('🟢 [WS] Step 1: Constructing WebSocket URL from current origin...')
 
-      socket.value.on('connect', () => {
-        isConnected.value = true
-        console.log('Connected to server')
-        
-        // Send visitor_id to join/create stream
-        const visitorId = getOrCreateVisitorId()
-        socket.value?.emit('join_stream', { visitor_id: visitorId })
-      })
+    // Construct WebSocket URL directly from current origin
+    const protocol = window.location.protocol.replace('http:', 'ws:').replace('https:', 'wss:')
+    const wsUrl = `${protocol}//${window.location.host}/socket.io`
 
-      socket.value.on('stream_started', () => {
-        console.log('New stream started for this visitor')
-        streamComplete.value = false
-      })
-      
-      socket.value.on('joined_existing_stream', () => {
-        console.log('Joined existing stream (another tab is already streaming)')
-      })
+    console.log('🟢 [WS] WebSocket URL constructed:', wsUrl)
+    console.log('🟢 [WS] Page origin:', window.location.origin)
+    console.log('🟢 [WS] Page protocol:', window.location.protocol)
+    console.log('🟢 [WS] Page hostname:', window.location.host)
 
-      socket.value.on('disconnect', () => {
-        isConnected.value = false
-        console.log('Disconnected from server')
-      })
+    socket.value = io(wsUrl, {
+      transports: ['websocket', 'polling'],
+      autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    })
 
-      socket.value.on('connected', () => {
-        console.log('Server confirmed connection')
-      })
+    console.log('🟢 [WS] Step 2: Socket.IO client created, autoConnect=true, waiting for connection...')
 
-      socket.value.on('prediction', (data: Prediction) => {
-        predictions.value.push(data)
-        saveToLocalStorage(data)
-      })
+    socket.value.on('connect', () => {
+      console.log('✅ [WS] Step 3: CONNECTED TO SERVER!')
+      console.log('✅ [WS] Socket ID:', socket.value?.id)
+      isConnected.value = true
 
-      socket.value.on('stream_complete', (data) => {
-        console.log(`Stream complete! Total transactions processed: ${data.total}`)
-        console.log(`Message: ${data.message}`)
-        streamComplete.value = true
-      })
-      
-      socket.value.on('stream_error', (data) => {
-        console.error('Stream error:', data.error)
-      })
-      
-      socket.value.on('error', (data) => {
-        console.error('WebSocket error:', data.message)
-      })
-      
-    } catch (error) {
-      configLoading.value = false
-      configError.value = error instanceof Error ? error.message : 'Unknown error'
-      console.error('Failed to connect:', error)
-    }
+      const visitorId = getOrCreateVisitorId()
+      console.log('🟢 [WS] Step 4: Joining stream with visitor_id:', visitorId)
+      socket.value?.emit('join_stream', { visitor_id: visitorId })
+      console.log('🟢 [WS] Sent join_stream event')
+    })
+
+    socket.value.on('stream_started', () => {
+      console.log('✅ [WS] Step 5: Stream started for this visitor')
+      streamComplete.value = false
+    })
+
+    socket.value.on('joined_existing_stream', () => {
+      console.log('✅ [WS] Step 5b: Joined existing stream (another tab is already streaming)')
+    })
+
+    socket.value.on('disconnect', () => {
+      console.log('🔴 [WS] DISCONNECTED from server')
+      isConnected.value = false
+    })
+
+    socket.value.on('connected', () => {
+      console.log('✅ [WS] Server confirmed connection')
+    })
+
+    socket.value.on('prediction', (data: Prediction) => {
+      console.log('📊 [WS] Received prediction #', predictions.value.length + 1, ':', data)
+      predictions.value.push(data)
+      saveToLocalStorage(data)
+    })
+
+    socket.value.on('stream_complete', (data) => {
+      console.log(`✅ [WS] Step 6: Stream complete! Total: ${data.total}`)
+      console.log(`✅ [WS] Message: ${data.message}`)
+      streamComplete.value = true
+    })
+
+    socket.value.on('stream_error', (data) => {
+      console.error('🔴 [WS] Stream error:', data.error)
+    })
+
+    socket.value.on('error', (data) => {
+      console.error('🔴 [WS] Socket.IO error:', data.message)
+    })
   }
 
   const saveToLocalStorage = (prediction: Prediction) => {
@@ -148,11 +117,16 @@ export function useWebSocket() {
   }
 
   onMounted(() => {
+    console.log('🟡 [WS] === COMPONENT MOUNTED ===')
+    console.log('🟢 [WS] Step 0: Loading cached predictions from localStorage...')
     loadFromLocalStorage()
+    console.log('🟢 [WS] Step 0a: Cached predictions loaded:', predictions.value.length)
     connect()
   })
 
   onUnmounted(() => {
+    console.log('🟡 [WS] === COMPONENT UNMOUNTED ===')
+    console.log('🟠 [WS] Disconnecting WebSocket...')
     disconnect()
   })
 
@@ -161,8 +135,6 @@ export function useWebSocket() {
     predictions,
     socket,
     streamComplete,
-    configLoading,
-    configError,
     reconnect: connect
   }
 }
