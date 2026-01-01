@@ -136,91 +136,103 @@ def serve(path):
 
 @socketio.on('connect')
 def handle_connect():
-    """Handle client WebSocket connection."""
-    print(f'Socket connected: {request.sid}')
+    print('=' * 80)
+    print('🟢 [SOCKETIO] NEW CONNECTION ATTEMPT')
+    print(f'🟢 [SOCKETIO] Socket ID: {request.sid}')
+    print(f'🟢 [SOCKETIO] Client Address: {request.remote_addr}')
+    print(f'🟢 [SOCKETIO] Headers: {dict(request.headers)}')
+    print(f'🟢 [SOCKETIO] Transport: {request.environ.get("HTTP_UPGRADE", "polling")}')
+    print(f'🟢 [SOCKETIO] X-Forwarded-Proto: {request.headers.get("X-Forwarded-Proto")}')
+    print(f'🟢 [SOCKETIO] User-Agent: {request.headers.get("User-Agent")}')
+    print('=' * 80)
     emit('connected', {'status': 'connected'})
 
 
 @socketio.on('join_stream')
 def handle_join_stream(data):
-    """Client sends visitor_id to join or create stream."""
+    print('🔵 [SOCKETIO] JOIN_STREAM EVENT RECEIVED')
+    print(f'🔵 [SOCKETIO] Socket ID: {request.sid}')
+    print(f'🔵 [SOCKETIO] Data received: {data}')
+    
     visitor_id = data.get('visitor_id')
     
     if not visitor_id:
+        print('🔴 [SOCKETIO] ERROR: No visitor_id provided')
         emit('error', {'message': 'visitor_id required'})
         return
     
-    # Map socket to visitor
+    print(f'🔵 [SOCKETIO] Visitor ID: {visitor_id}')
     socket_to_visitor[request.sid] = visitor_id
-    
-    # Join the room for this visitor
     join_room(visitor_id)
+    print(f'🔵 [SOCKETIO] Socket {request.sid} joined room: {visitor_id}')
     
-    # Check if visitor already has active stream
     if visitor_id in active_streams:
-        # Join existing stream
         stream_info = active_streams[visitor_id]
         stream_info['socket_ids'].add(request.sid)
         emit('joined_existing_stream', {'status': 'joined'})
-        print(f'Socket {request.sid} joined existing stream for visitor {visitor_id}')
+        print(f'🟡 [SOCKETIO] Socket joined existing stream for visitor {visitor_id}')
+        print(f'🟡 [SOCKETIO] Active sockets for this visitor: {len(stream_info["socket_ids"])}')
     else:
-        # Create new stream
         active_streams[visitor_id] = {
             'socket_ids': {request.sid},
             'status': 'active',
             'thread': None
         }
-        # Start streaming in background
+        print(f'🟢 [SOCKETIO] Creating NEW stream for visitor {visitor_id}')
         thread = socketio.start_background_task(stream_predictions, visitor_id)
         active_streams[visitor_id]['thread'] = thread
         emit('stream_started', {'status': 'started'})
-        print(f'Started new stream for visitor {visitor_id}')
+        print(f'✅ [SOCKETIO] Stream started for visitor {visitor_id}')
 
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    """Handle client disconnection and cleanup."""
+    print('=' * 80)
+    print('🔴 [SOCKETIO] CLIENT DISCONNECTED')
     sid = request.sid
+    print(f'🔴 [SOCKETIO] Socket ID: {sid}')
+    
     visitor_id = socket_to_visitor.get(sid)
     
     if not visitor_id:
-        print(f'Socket disconnected: {sid}')
+        print(f'🔴 [SOCKETIO] No visitor_id mapped for socket {sid}')
+        print('=' * 80)
         return
     
-    # Remove socket from visitor's stream
+    print(f'🔴 [SOCKETIO] Visitor ID: {visitor_id}')
+    
     if visitor_id in active_streams:
         stream_info = active_streams[visitor_id]
         stream_info['socket_ids'].discard(sid)
+        print(f'🔴 [SOCKETIO] Remaining sockets for visitor {visitor_id}: {len(stream_info["socket_ids"])}')
         
-        # If no more sockets, mark stream for cleanup
         if len(stream_info['socket_ids']) == 0:
             stream_info['status'] = 'cleanup'
-            print(f'Last socket disconnected, marking stream {visitor_id} for cleanup')
+            print(f'🔴 [SOCKETIO] Last socket disconnected, marking stream {visitor_id} for cleanup')
     
-    # Remove socket mapping
     if sid in socket_to_visitor:
         del socket_to_visitor[sid]
     
-    print(f'Socket disconnected: {sid}')
+    print('=' * 80)
 
 
 def stream_predictions(visitor_id):
-    """Stream predictions from test data to a specific visitor."""
     try:
-        print(f"Loading test data for visitor {visitor_id}...")
+        print('📊 ' + '=' * 78)
+        print(f'📊 [STREAM] Starting prediction stream for visitor: {visitor_id}')
+        print(f'📊 [STREAM] Loading test data...')
         
-        # Load test data with corrected paths
         test_trans = pd.read_csv('./content/small_test_transaction.csv')
         test_id = pd.read_csv('./content/ieee-fraud-detection/test_identity.csv')
         
-        # Preprocess column names
         test_trans.columns = test_trans.columns.str.replace('-', '_')
         test_id.columns = test_id.columns.str.replace('-', '_')
         
-        print("Merging transaction and identity data...")
+        print(f'📊 [STREAM] Merging transaction and identity data...')
         test_merged = test_trans.merge(test_id, on='TransactionID', how='left')
         
-        print(f"Streaming {len(test_merged)} predictions for visitor {visitor_id}...")
+        print(f'📊 [STREAM] Will stream {len(test_merged)} predictions')
+        print('📊 ' + '=' * 78)
         
         for idx, row in test_merged.iterrows():
             # Check if stream should stop
@@ -239,37 +251,53 @@ def stream_predictions(visitor_id):
             result['TransactionAmt'] = row['TransactionAmt']
             result['timestamp'] = datetime.now().isoformat()
             
-            # Emit to all sockets for this visitor
             socketio.emit('prediction', result, room=visitor_id)
             
-            # Random delay between 0.5 and 2.5 seconds
             delay = random.uniform(0.5, 2.5)
             eventlet.sleep(delay)
             
             if (idx + 1) % 100 == 0:
-                print(f"Visitor {visitor_id}: Processed {idx + 1}/{len(test_merged)} transactions")
+                print(f'📊 [STREAM] Progress for {visitor_id}: {idx + 1}/{len(test_merged)} transactions')
+            elif (idx + 1) % 10 == 0:
+                print(f'📊 [STREAM] Visitor {visitor_id}: {idx + 1} transactions sent')
         
-        # Stream completed successfully
-        print(f"Stream complete for visitor {visitor_id}!")
+        print('✅ ' + '=' * 78)
+        print(f'✅ [STREAM] Stream complete for visitor {visitor_id}!')
+        print(f'✅ [STREAM] Total transactions processed: {len(test_merged)}')
+        print('✅ ' + '=' * 78)
         socketio.emit('stream_complete', {
             'total': len(test_merged),
             'message': 'All transactions processed'
         }, room=visitor_id)
         
     except Exception as e:
-        print(f"Error streaming predictions for visitor {visitor_id}: {e}")
+        print('🔴 ' + '=' * 78)
+        print(f'🔴 [STREAM] ERROR in stream for visitor {visitor_id}')
+        print(f'🔴 [STREAM] Error: {e}')
+        print(f'🔴 [STREAM] Error type: {type(e).__name__}')
+        import traceback
+        print(f'🔴 [STREAM] Traceback:')
+        traceback.print_exc()
+        print('🔴 ' + '=' * 78)
         socketio.emit('stream_error', {'error': str(e)}, room=visitor_id)
     
     finally:
-        # Cleanup stream from active_streams
         if visitor_id in active_streams:
             del active_streams[visitor_id]
-            print(f"Cleaned up stream for {visitor_id}")
+            print(f'🧹 [STREAM] Cleaned up stream for {visitor_id}')
 
 
 if __name__ == '__main__':
     host = os.environ.get('FLASK_HOST', '0.0.0.0')
     port = int(os.environ.get('FLASK_PORT', 5000))
     debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    
+    print('🚀 ' + '=' * 78)
+    print('🚀 [STARTUP] Starting Flask-SocketIO server')
+    print(f'🚀 [STARTUP] Host: {host}')
+    print(f'🚀 [STARTUP] Port: {port}')
+    print(f'🚀 [STARTUP] Debug: {debug}')
+    print(f'🚀 [STARTUP] HF_REPO_ID: {HF_REPO_ID or "Not set (using local artifacts)"}')
+    print('🚀 ' + '=' * 78)
 
     socketio.run(app, host=host, port=port, debug=debug)
