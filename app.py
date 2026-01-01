@@ -23,6 +23,46 @@ socket_to_visitor = {}  # socket.sid -> visitor_id
 # Environment variables for deployment
 HF_REPO_ID = os.environ.get('HF_REPO_ID', None)
 
+# DEBUG: Check filesystem at startup
+print("=" * 80)
+print("🔍 [STARTUP DEBUG] Filesystem Check")
+print(f"🔍 [STARTUP DEBUG] Current directory: {os.getcwd()}")
+print(f"🔍 [STARTUP DEBUG] Directory contents:")
+for item in sorted(os.listdir('.')):
+    item_path = os.path.join('.', item)
+    if os.path.isdir(item_path):
+        print(f"🔍 [STARTUP DEBUG]   📁 {item}/")
+    else:
+        print(f"🔍 [STARTUP DEBUG]   📄 {item}")
+
+if os.path.exists('./content'):
+    print(f"🔍 [STARTUP DEBUG] ✅ ./content EXISTS!")
+    print(f"🔍 [STARTUP DEBUG] Contents of ./content:")
+    for item in sorted(os.listdir('./content')):
+        item_path = os.path.join('./content', item)
+        if os.path.isdir(item_path):
+            print(f"🔍 [STARTUP DEBUG]     📁 {item}/")
+        else:
+            size = os.path.getsize(item_path)
+            print(f"🔍 [STARTUP DEBUG]     📄 {item} ({size:,} bytes)")
+    
+    # Check for specific files
+    files_to_check = [
+        './content/small_test_transaction.csv',
+        './content/ieee-fraud-detection/test_identity.csv'
+    ]
+    for filepath in files_to_check:
+        exists = os.path.exists(filepath)
+        if exists:
+            size = os.path.getsize(filepath)
+            print(f"🔍 [STARTUP DEBUG] ✅ {filepath} EXISTS ({size:,} bytes)")
+        else:
+            print(f"🔍 [STARTUP DEBUG] ❌ {filepath} DOES NOT EXIST")
+else:
+    print(f"🔍 [STARTUP DEBUG] ❌ ./content DOES NOT EXIST")
+print("=" * 80)
+
+
 def get_detector():
     """Lazy load detector to avoid startup delays."""
     global detector
