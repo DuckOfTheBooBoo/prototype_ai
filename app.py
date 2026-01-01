@@ -7,6 +7,7 @@ import sys
 import eventlet
 eventlet.monkey_patch()
 
+
 import pandas as pd
 from flask import Flask, jsonify, request, send_from_directory
 from flask_socketio import SocketIO, emit, join_room
@@ -29,6 +30,7 @@ socket_to_visitor = {}  # socket.sid -> visitor_id
 HF_REPO_ID = os.environ.get('HF_REPO_ID', None)
 
 
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -43,6 +45,19 @@ logging.getLogger('engineio').setLevel(logging.WARNING)
 logging.getLogger('eventlet').setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
+
+host = os.environ.get('FLASK_HOST', '0.0.0.0')
+port = int(os.environ.get('FLASK_PORT', 5000))
+debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+
+
+logger.info('🚀 ' + '=' * 78)
+logger.info('🚀 [STARTUP] Starting Flask-SocketIO server')
+logger.info(f'🚀 [STARTUP] Host: {host}')
+logger.info(f'🚀 [STARTUP] Port: {port}')
+logger.info(f'🚀 [STARTUP] Debug: {debug}')
+logger.info(f'🚀 [STARTUP] HF_REPO_ID: {HF_REPO_ID or "Not set (using local artifacts)"}')
+logger.info('🚀 ' + '=' * 78)
 
 # DEBUG: Check filesystem at startup
 logger.info("=" * 80)
@@ -365,17 +380,6 @@ def stream_predictions(visitor_id):
             logger.info(f'🧹 [STREAM] Cleaned up stream for {visitor_id}')
 
 
-if __name__ == '__main__':
-    host = os.environ.get('FLASK_HOST', '0.0.0.0')
-    port = int(os.environ.get('FLASK_PORT', 5000))
-    debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
-    
-    logger.info('🚀 ' + '=' * 78)
-    logger.info('🚀 [STARTUP] Starting Flask-SocketIO server')
-    logger.info(f'🚀 [STARTUP] Host: {host}')
-    logger.info(f'🚀 [STARTUP] Port: {port}')
-    logger.info(f'🚀 [STARTUP] Debug: {debug}')
-    logger.info(f'🚀 [STARTUP] HF_REPO_ID: {HF_REPO_ID or "Not set (using local artifacts)"}')
-    logger.info('🚀 ' + '=' * 78)
+# if __name__ == '__main__':
 
-    socketio.run(app, host=host, port=port, debug=debug)
+    # socketio.run(app, host=host, port=port, debug=debug)
