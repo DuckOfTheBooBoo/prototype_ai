@@ -7,6 +7,7 @@ import random
 import eventlet
 from datetime import datetime
 import threading
+import logging
 
 app = Flask(__name__, static_folder='frontend/dist', static_url_path='')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
@@ -23,28 +24,37 @@ socket_to_visitor = {}  # socket.sid -> visitor_id
 # Environment variables for deployment
 HF_REPO_ID = os.environ.get('HF_REPO_ID', None)
 
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
+
 # DEBUG: Check filesystem at startup
-print("=" * 80)
-print("🔍 [STARTUP DEBUG] Filesystem Check")
-print(f"🔍 [STARTUP DEBUG] Current directory: {os.getcwd()}")
-print(f"🔍 [STARTUP DEBUG] Directory contents:")
+logger.info("=" * 80)
+logger.info("🔍 [STARTUP DEBUG] Filesystem Check")
+logger.info(f"🔍 [STARTUP DEBUG] Current directory: {os.getcwd()}")
+logger.info(f"🔍 [STARTUP DEBUG] Directory contents:")
 for item in sorted(os.listdir('.')):
     item_path = os.path.join('.', item)
     if os.path.isdir(item_path):
-        print(f"🔍 [STARTUP DEBUG]   📁 {item}/")
+        logger.info(f"🔍 [STARTUP DEBUG]   📁 {item}/")
     else:
-        print(f"🔍 [STARTUP DEBUG]   📄 {item}")
+        logger.info(f"🔍 [STARTUP DEBUG]   📄 {item}")
 
 if os.path.exists('./content'):
-    print(f"🔍 [STARTUP DEBUG] ✅ ./content EXISTS!")
-    print(f"🔍 [STARTUP DEBUG] Contents of ./content:")
+    logger.info(f"🔍 [STARTUP DEBUG] ✅ ./content EXISTS!")
+    logger.info(f"🔍 [STARTUP DEBUG] Contents of ./content:")
     for item in sorted(os.listdir('./content')):
         item_path = os.path.join('./content', item)
         if os.path.isdir(item_path):
-            print(f"🔍 [STARTUP DEBUG]     📁 {item}/")
+            logger.info(f"🔍 [STARTUP DEBUG]     📁 {item}/")
         else:
             size = os.path.getsize(item_path)
-            print(f"🔍 [STARTUP DEBUG]     📄 {item} ({size:,} bytes)")
+            logger.info(f"🔍 [STARTUP DEBUG]     📄 {item} ({size:,} bytes)")
     
     # Check for specific files
     files_to_check = [
@@ -55,12 +65,12 @@ if os.path.exists('./content'):
         exists = os.path.exists(filepath)
         if exists:
             size = os.path.getsize(filepath)
-            print(f"🔍 [STARTUP DEBUG] ✅ {filepath} EXISTS ({size:,} bytes)")
+            logger.info(f"🔍 [STARTUP DEBUG] ✅ {filepath} EXISTS ({size:,} bytes)")
         else:
-            print(f"🔍 [STARTUP DEBUG] ❌ {filepath} DOES NOT EXIST")
+            logger.info(f"🔍 [STARTUP DEBUG] ❌ {filepath} DOES NOT EXIST")
 else:
-    print(f"🔍 [STARTUP DEBUG] ❌ ./content DOES NOT EXIST")
-print("=" * 80)
+    logger.info(f"🔍 [STARTUP DEBUG] ❌ ./content DOES NOT EXIST")
+logger.info("=" * 80)
 
 
 def get_detector():
@@ -71,13 +81,13 @@ def get_detector():
         
         # Check if we should load from HuggingFace
         if HF_REPO_ID:
-            print(f"Initializing FraudDetector with HuggingFace models: {HF_REPO_ID}")
+            logger.info(f"Initializing FraudDetector with HuggingFace models: {HF_REPO_ID}")
             detector = FraudDetector(
                 artifact_path=artifact_path,
                 hf_repo_id=HF_REPO_ID
             )
         else:
-            print("Initializing FraudDetector with local artifacts")
+            logger.info("Initializing FraudDetector with local artifacts")
             detector = FraudDetector(artifact_path=artifact_path)
     return detector
 
@@ -176,127 +186,127 @@ def serve(path):
 
 @socketio.on('connect')
 def handle_connect():
-    print('=' * 80)
-    print('🟢 [SOCKETIO] NEW CONNECTION ATTEMPT')
-    print(f'🟢 [SOCKETIO] Socket ID: {request.sid}')
-    print(f'🟢 [SOCKETIO] Client Address: {request.remote_addr}')
-    print(f'🟢 [SOCKETIO] Headers: {dict(request.headers)}')
-    print(f'🟢 [SOCKETIO] Transport: {request.environ.get("HTTP_UPGRADE", "polling")}')
-    print(f'🟢 [SOCKETIO] X-Forwarded-Proto: {request.headers.get("X-Forwarded-Proto")}')
-    print(f'🟢 [SOCKETIO] User-Agent: {request.headers.get("User-Agent")}')
-    print('=' * 80)
+    logger.info('=' * 80)
+    logger.info('🟢 [SOCKETIO] NEW CONNECTION ATTEMPT')
+    logger.info(f'🟢 [SOCKETIO] Socket ID: {request.sid}')
+    logger.info(f'🟢 [SOCKETIO] Client Address: {request.remote_addr}')
+    logger.info(f'🟢 [SOCKETIO] Headers: {dict(request.headers)}')
+    logger.info(f'🟢 [SOCKETIO] Transport: {request.environ.get("HTTP_UPGRADE", "polling")}')
+    logger.info(f'🟢 [SOCKETIO] X-Forwarded-Proto: {request.headers.get("X-Forwarded-Proto")}')
+    logger.info(f'🟢 [SOCKETIO] User-Agent: {request.headers.get("User-Agent")}')
+    logger.info('=' * 80)
     emit('connected', {'status': 'connected'})
 
 
 @socketio.on('join_stream')
 def handle_join_stream(data):
-    print('🔵 [SOCKETIO] JOIN_STREAM EVENT RECEIVED')
-    print(f'🔵 [SOCKETIO] Socket ID: {request.sid}')
-    print(f'🔵 [SOCKETIO] Data received: {data}')
+    logger.info('🔵 [SOCKETIO] JOIN_STREAM EVENT RECEIVED')
+    logger.info(f'🔵 [SOCKETIO] Socket ID: {request.sid}')
+    logger.info(f'🔵 [SOCKETIO] Data received: {data}')
     
     visitor_id = data.get('visitor_id')
     
     if not visitor_id:
-        print('🔴 [SOCKETIO] ERROR: No visitor_id provided')
+        logger.info('🔴 [SOCKETIO] ERROR: No visitor_id provided')
         emit('error', {'message': 'visitor_id required'})
         return
     
-    print(f'🔵 [SOCKETIO] Visitor ID: {visitor_id}')
+    logger.info(f'🔵 [SOCKETIO] Visitor ID: {visitor_id}')
     socket_to_visitor[request.sid] = visitor_id
     join_room(visitor_id)
-    print(f'🔵 [SOCKETIO] Socket {request.sid} joined room: {visitor_id}')
+    logger.info(f'🔵 [SOCKETIO] Socket {request.sid} joined room: {visitor_id}')
     
     if visitor_id in active_streams:
         stream_info = active_streams[visitor_id]
         stream_info['socket_ids'].add(request.sid)
         emit('joined_existing_stream', {'status': 'joined'})
-        print(f'🟡 [SOCKETIO] Socket joined existing stream for visitor {visitor_id}')
-        print(f'🟡 [SOCKETIO] Active sockets for this visitor: {len(stream_info["socket_ids"])}')
+        logger.info(f'🟡 [SOCKETIO] Socket joined existing stream for visitor {visitor_id}')
+        logger.info(f'🟡 [SOCKETIO] Active sockets for this visitor: {len(stream_info["socket_ids"])}')
     else:
         active_streams[visitor_id] = {
             'socket_ids': {request.sid},
             'status': 'active',
             'thread': None
         }
-        print(f'🟢 [SOCKETIO] Creating NEW stream for visitor {visitor_id}')
+        logger.info(f'🟢 [SOCKETIO] Creating NEW stream for visitor {visitor_id}')
         thread = socketio.start_background_task(stream_predictions, visitor_id)
         active_streams[visitor_id]['thread'] = thread
         emit('stream_started', {'status': 'started'})
-        print(f'✅ [SOCKETIO] Stream started for visitor {visitor_id}')
+        logger.info(f'✅ [SOCKETIO] Stream started for visitor {visitor_id}')
 
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    print('=' * 80)
-    print('🔴 [SOCKETIO] CLIENT DISCONNECTED')
+    logger.info('=' * 80)
+    logger.info('🔴 [SOCKETIO] CLIENT DISCONNECTED')
     sid = request.sid
-    print(f'🔴 [SOCKETIO] Socket ID: {sid}')
+    logger.info(f'🔴 [SOCKETIO] Socket ID: {sid}')
     
     visitor_id = socket_to_visitor.get(sid)
     
     if not visitor_id:
-        print(f'🔴 [SOCKETIO] No visitor_id mapped for socket {sid}')
-        print('=' * 80)
+        logger.info(f'🔴 [SOCKETIO] No visitor_id mapped for socket {sid}')
+        logger.info('=' * 80)
         return
     
-    print(f'🔴 [SOCKETIO] Visitor ID: {visitor_id}')
+    logger.info(f'🔴 [SOCKETIO] Visitor ID: {visitor_id}')
     
     if visitor_id in active_streams:
         stream_info = active_streams[visitor_id]
         stream_info['socket_ids'].discard(sid)
-        print(f'🔴 [SOCKETIO] Remaining sockets for visitor {visitor_id}: {len(stream_info["socket_ids"])}')
+        logger.info(f'🔴 [SOCKETIO] Remaining sockets for visitor {visitor_id}: {len(stream_info["socket_ids"])}')
         
         if len(stream_info['socket_ids']) == 0:
             stream_info['status'] = 'cleanup'
-            print(f'🔴 [SOCKETIO] Last socket disconnected, marking stream {visitor_id} for cleanup')
+            logger.info(f'🔴 [SOCKETIO] Last socket disconnected, marking stream {visitor_id} for cleanup')
     
     if sid in socket_to_visitor:
         del socket_to_visitor[sid]
     
-    print('=' * 80)
+    logger.info('=' * 80)
 
 
 def stream_predictions(visitor_id):
     try:
-        print('📊 ' + '=' * 78)
-        print(f'📊 [STREAM] Starting prediction stream for visitor: {visitor_id}')
+        logger.info('📊 ' + '=' * 78)
+        logger.info(f'📊 [STREAM] Starting prediction stream for visitor: {visitor_id}')
         
-        print(f'📊 [DEBUG] Current working directory: {os.getcwd()}')
-        print(f'📊 [DEBUG] Checking if content directory exists...')
+        logger.debug(f'📊 [DEBUG] Current working directory: {os.getcwd()}')
+        logger.debug(f'📊 [DEBUG] Checking if content directory exists...')
         if os.path.exists('./content'):
-            print(f'📊 [DEBUG] ./content EXISTS')
-            print(f'📊 [DEBUG] Contents of ./content:')
+            logger.debug(f'📊 [DEBUG] ./content EXISTS')
+            logger.debug(f'📊 [DEBUG] Contents of ./content:')
             for item in os.listdir('./content'):
-                print(f'📊 [DEBUG]   - {item}')
+                logger.debug(f'📊 [DEBUG]   - {item}')
         else:
-            print(f'📊 [DEBUG] ./content DOES NOT EXIST')
-            print(f'📊 [DEBUG] Current directory contents:')
+            logger.debug(f'📊 [DEBUG] ./content DOES NOT EXIST')
+            logger.debug(f'📊 [DEBUG] Current directory contents:')
             for item in os.listdir('.'):
-                print(f'📊 [DEBUG]   - {item}')
+                logger.debug(f'📊 [DEBUG]   - {item}')
         
         csv1_path = os.path.join(os.getcwd(), 'content', 'small_test_transaction.csv')
         csv2_path = os.path.join(os.getcwd(), 'content', 'ieee-fraud-detection', 'test_identity.csv')
-        print(f'📊 [DEBUG] File check: {csv1_path} exists = {os.path.exists(csv1_path)}')
-        print(f'📊 [DEBUG] File check: {csv2_path} exists = {os.path.exists(csv2_path)}')
+        logger.debug(f'📊 [DEBUG] File check: {csv1_path} exists = {os.path.exists(csv1_path)}')
+        logger.debug(f'📊 [DEBUG] File check: {csv2_path} exists = {os.path.exists(csv2_path)}')
         
-        print(f'📊 [STREAM] Loading test data...')
+        logger.info(f'📊 [STREAM] Loading test data...')
         test_trans = pd.read_csv(os.path.join(os.getcwd(), 'content', 'small_test_transaction.csv'))
         test_id = pd.read_csv(os.path.join(os.getcwd(), 'content', 'ieee-fraud-detection', 'test_identity.csv'))
         
         test_trans.columns = test_trans.columns.str.replace('-', '_')
         test_id.columns = test_id.columns.str.replace('-', '_')
         
-        print(f'📊 [STREAM] Merging transaction and identity data...')
+        logger.info(f'📊 [STREAM] Merging transaction and identity data...')
         test_merged = test_trans.merge(test_id, on='TransactionID', how='left')
         
-        print(f'📊 [STREAM] Will stream {len(test_merged)} predictions')
-        print('📊 ' + '=' * 78)
+        logger.info(f'📊 [STREAM] Will stream {len(test_merged)} predictions')
+        logger.info('📊 ' + '=' * 78)
         
         for idx, row in test_merged.iterrows():
             # Check if stream should stop
             stream_info = active_streams.get(visitor_id)
             if not stream_info or stream_info['status'] == 'cleanup':
-                print(f"Stream {visitor_id} stopped early (cleanup requested)")
+                logger.warning(f"Stream {visitor_id} stopped early (cleanup requested)")
                 break
             
             # Process transaction
@@ -315,34 +325,34 @@ def stream_predictions(visitor_id):
             eventlet.sleep(delay)
             
             if (idx + 1) % 100 == 0:
-                print(f'📊 [STREAM] Progress for {visitor_id}: {idx + 1}/{len(test_merged)} transactions')
+                logger.info(f'📊 [STREAM] Progress for {visitor_id}: {idx + 1}/{len(test_merged)} transactions')
             elif (idx + 1) % 10 == 0:
-                print(f'📊 [STREAM] Visitor {visitor_id}: {idx + 1} transactions sent')
+                logger.info(f'📊 [STREAM] Visitor {visitor_id}: {idx + 1} transactions sent')
         
-        print('✅ ' + '=' * 78)
-        print(f'✅ [STREAM] Stream complete for visitor {visitor_id}!')
-        print(f'✅ [STREAM] Total transactions processed: {len(test_merged)}')
-        print('✅ ' + '=' * 78)
+        logger.info('✅ ' + '=' * 78)
+        logger.info(f'✅ [STREAM] Stream complete for visitor {visitor_id}!')
+        logger.info(f'✅ [STREAM] Total transactions processed: {len(test_merged)}')
+        logger.info('✅ ' + '=' * 78)
         socketio.emit('stream_complete', {
             'total': len(test_merged),
             'message': 'All transactions processed'
         }, room=visitor_id)
         
     except Exception as e:
-        print('🔴 ' + '=' * 78)
-        print(f'🔴 [STREAM] ERROR in stream for visitor {visitor_id}')
-        print(f'🔴 [STREAM] Error: {e}')
-        print(f'🔴 [STREAM] Error type: {type(e).__name__}')
+        logger.error('🔴 ' + '=' * 78)
+        logger.error(f'🔴 [STREAM] ERROR in stream for visitor {visitor_id}')
+        logger.error(f'🔴 [STREAM] Error: {e}')
+        logger.error(f'🔴 [STREAM] Error type: {type(e).__name__}')
         import traceback
-        print(f'🔴 [STREAM] Traceback:')
-        traceback.print_exc()
-        print('🔴 ' + '=' * 78)
+        logger.error(f'🔴 [STREAM] Traceback:')
+        logger.exception("Full traceback:")
+        logger.error('🔴 ' + '=' * 78)
         socketio.emit('stream_error', {'error': str(e)}, room=visitor_id)
     
     finally:
         if visitor_id in active_streams:
             del active_streams[visitor_id]
-            print(f'🧹 [STREAM] Cleaned up stream for {visitor_id}')
+            logger.info(f'🧹 [STREAM] Cleaned up stream for {visitor_id}')
 
 
 if __name__ == '__main__':
@@ -350,12 +360,12 @@ if __name__ == '__main__':
     port = int(os.environ.get('FLASK_PORT', 5000))
     debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
     
-    print('🚀 ' + '=' * 78)
-    print('🚀 [STARTUP] Starting Flask-SocketIO server')
-    print(f'🚀 [STARTUP] Host: {host}')
-    print(f'🚀 [STARTUP] Port: {port}')
-    print(f'🚀 [STARTUP] Debug: {debug}')
-    print(f'🚀 [STARTUP] HF_REPO_ID: {HF_REPO_ID or "Not set (using local artifacts)"}')
-    print('🚀 ' + '=' * 78)
+    logger.info('🚀 ' + '=' * 78)
+    logger.info('🚀 [STARTUP] Starting Flask-SocketIO server')
+    logger.info(f'🚀 [STARTUP] Host: {host}')
+    logger.info(f'🚀 [STARTUP] Port: {port}')
+    logger.info(f'🚀 [STARTUP] Debug: {debug}')
+    logger.info(f'🚀 [STARTUP] HF_REPO_ID: {HF_REPO_ID or "Not set (using local artifacts)"}')
+    logger.info('🚀 ' + '=' * 78)
 
     socketio.run(app, host=host, port=port, debug=debug)
