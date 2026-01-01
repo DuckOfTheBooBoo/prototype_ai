@@ -218,7 +218,6 @@ def handle_disconnect():
 
 def stream_predictions(visitor_id):
     try:
-    try:
         print('📊 ' + '=' * 78)
         print(f'📊 [STREAM] Starting prediction stream for visitor: {visitor_id}')
         
