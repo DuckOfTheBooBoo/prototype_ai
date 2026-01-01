@@ -218,10 +218,27 @@ def handle_disconnect():
 
 def stream_predictions(visitor_id):
     try:
+    try:
         print('📊 ' + '=' * 78)
         print(f'📊 [STREAM] Starting prediction stream for visitor: {visitor_id}')
-        print(f'📊 [STREAM] Loading test data...')
         
+        print(f'📊 [DEBUG] Current working directory: {os.getcwd()}')
+        print(f'📊 [DEBUG] Checking if content directory exists...')
+        if os.path.exists('./content'):
+            print(f'📊 [DEBUG] ./content EXISTS')
+            print(f'📊 [DEBUG] Contents of ./content:')
+            for item in os.listdir('./content'):
+                print(f'📊 [DEBUG]   - {item}')
+        else:
+            print(f'📊 [DEBUG] ./content DOES NOT EXIST')
+            print(f'📊 [DEBUG] Current directory contents:')
+            for item in os.listdir('.'):
+                print(f'📊 [DEBUG]   - {item}')
+        
+        print(f'📊 [DEBUG] File check: ./content/small_test_transaction.csv exists = {os.path.exists("./content/small_test_transaction.csv")}')
+        print(f'📊 [DEBUG] File check: ./content/ieee-fraud-detection/test_identity.csv exists = {os.path.exists("./content/ieee-fraud-detection/test_identity.csv")}')
+        
+        print(f'📊 [STREAM] Loading test data...')
         test_trans = pd.read_csv('./content/small_test_transaction.csv')
         test_id = pd.read_csv('./content/ieee-fraud-detection/test_identity.csv')
         
