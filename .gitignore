@@ -68,7 +68,16 @@ target/
 # Jupyter Notebook
 .ipynb_checkpoints
 *.ipynb
+
+# Ignore JSON files EXCEPT package.json and config files
 *.json
+!package.json
+!**/package.json
+!pnpm-lock.yaml
+!package-lock.json
+!yarn.lock
+!tsconfig*.json
+!components.json
 
 # IPython
 profile_default/
