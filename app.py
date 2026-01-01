@@ -103,17 +103,21 @@ def health():
 def get_config():
     """
     Return configuration for frontend clients.
-    
+
     This endpoint provides the WebSocket URL and other configuration
     that the frontend needs to connect properly.
     """
-    # Determine the base URL for WebSocket connections
-    # In production, this should be set via environment variable
-    base_url = os.environ.get('WEBSOCKET_URL', request.host_url.rstrip('/'))
-    
-    # Build the WebSocket URL
+    is_secure = request.is_secure or request.headers.get('X-Forwarded-Proto') == 'https'
+
+    base_url = os.environ.get('WEBSOCKET_URL')
+
+    if not base_url:
+        scheme = 'https' if is_secure else 'http'
+        base_url = f"{scheme}://{request.host}"
+
     websocket_url = f"{base_url}{WEBSOCKET_PATH}"
-    
+    websocket_url = websocket_url.replace('https://', 'wss://').replace('http://', 'ws://')
+
     return jsonify({
         'websocket_url': websocket_url,
         'websocket_path': WEBSOCKET_PATH,
