@@ -121,17 +121,41 @@ def get_config():
     }), 200
 
 
-@app.route('/', methods=['GET'])
-def index():
-    """API information."""
+@app.route('/api')
+def api_info():
     return jsonify({
         'service': 'Fraud Detection API',
         'version': '1.0',
         'endpoints': {
             'POST /predict': 'Predict fraud for single transaction',
-            'GET /health': 'Health check'
+            'GET /health': 'Health check',
+            'GET /config': 'Get WebSocket configuration'
         }
     }), 200
+
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    static_folder = app.static_folder
+    
+    if not static_folder or not os.path.exists(static_folder):
+        return jsonify({
+            'error': 'Frontend not built',
+            'message': 'Please build the frontend first: cd frontend && pnpm build'
+        }), 500
+    
+    if path and os.path.exists(os.path.join(static_folder, path)):
+        return send_from_directory(static_folder, path)
+    
+    index_path = os.path.join(static_folder, 'index.html')
+    if os.path.exists(index_path):
+        return send_from_directory(static_folder, 'index.html')
+    
+    return jsonify({
+        'error': 'Frontend not found',
+        'message': 'Please build the frontend: cd frontend && pnpm build'
+    }), 500
 
 
 @socketio.on('connect')
@@ -265,39 +289,6 @@ def stream_predictions(visitor_id):
         if visitor_id in active_streams:
             del active_streams[visitor_id]
             print(f"Cleaned up stream for {visitor_id}")
-
-
-# Serve frontend static files
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve_frontend(path):
-    """
-    Serve the Vue.js frontend application.
-    
-    This enables the Flask app to serve both the API and the frontend
-    as a monolithic application, suitable for Railway deployment.
-    """
-    # Try to serve the file from the static folder
-    static_folder = app.static_folder
-    if not static_folder:
-        return jsonify({
-            'error': 'Frontend not built',
-            'message': 'Please build the frontend first: cd frontend && pnpm build'
-        }), 500
-    
-    # Check if the path is a file that exists
-    if path and os.path.exists(os.path.join(static_folder, path)):
-        return send_from_directory(static_folder, path)
-    
-    # Otherwise, serve index.html for SPA routing
-    index_path = os.path.join(static_folder, 'index.html')
-    if os.path.exists(index_path):
-        return send_from_directory(static_folder, 'index.html')
-    
-    return jsonify({
-        'error': 'Frontend not found',
-        'message': 'Please build the frontend: cd frontend && pnpm build'
-    }), 500
 
 
 if __name__ == '__main__':

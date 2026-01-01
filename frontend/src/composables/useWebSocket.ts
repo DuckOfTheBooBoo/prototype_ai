@@ -2,18 +2,6 @@ import { io, Socket } from 'socket.io-client'
 import { ref, onMounted, onUnmounted } from 'vue'
 import type { Prediction } from '@/types'
 
-// WebSocket URL configuration - will be fetched from backend
-const getWebSocketUrl = (): string => {
-  // Check for environment variable first (for deployment)
-  const envUrl = import.meta.env.VITE_WEBSOCKET_URL
-  if (envUrl) {
-    return envUrl
-  }
-  
-  // Default to current origin with proper WebSocket path
-  return '' // Will be fetched from /config endpoint
-}
-
 export function useWebSocket() {
   const socket = ref<Socket | null>(null)
   const isConnected = ref(false)
@@ -72,7 +60,7 @@ export function useWebSocket() {
       
       configLoading.value = false
       
-      socket.value = io(wsUrl, {
+      socket.value = io(wsUrl!, {
         transports: ['websocket', 'polling'],
         autoConnect: true,
         reconnection: true,
@@ -131,53 +119,6 @@ export function useWebSocket() {
       configError.value = error instanceof Error ? error.message : 'Unknown error'
       console.error('Failed to connect:', error)
     }
-  }
-
-    socket.value.on('connect', () => {
-      isConnected.value = true
-      console.log('Connected to server')
-      
-      // Send visitor_id to join/create stream
-      const visitorId = getOrCreateVisitorId()
-      socket.value?.emit('join_stream', { visitor_id: visitorId })
-    })
-
-    socket.value.on('stream_started', () => {
-      console.log('New stream started for this visitor')
-      streamComplete.value = false
-    })
-    
-    socket.value.on('joined_existing_stream', () => {
-      console.log('Joined existing stream (another tab is already streaming)')
-    })
-
-    socket.value.on('disconnect', () => {
-      isConnected.value = false
-      console.log('Disconnected from server')
-    })
-
-    socket.value.on('connected', () => {
-      console.log('Server confirmed connection')
-    })
-
-    socket.value.on('prediction', (data: Prediction) => {
-      predictions.value.push(data)
-      saveToLocalStorage(data)
-    })
-
-    socket.value.on('stream_complete', (data) => {
-      console.log(`Stream complete! Total transactions processed: ${data.total}`)
-      console.log(`Message: ${data.message}`)
-      streamComplete.value = true
-    })
-    
-    socket.value.on('stream_error', (data) => {
-      console.error('Stream error:', data.error)
-    })
-    
-    socket.value.on('error', (data) => {
-      console.error('WebSocket error:', data.message)
-    })
   }
 
   const saveToLocalStorage = (prediction: Prediction) => {
